@@ -1,0 +1,7 @@
+resolver: lts-9.0
+packages:
+- '.'
+- integer-roots
+flags:
+  llvm-hs:
+    shared-llvm: true

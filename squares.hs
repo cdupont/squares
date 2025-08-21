@@ -22,7 +22,10 @@ import System.IO (hFlush, hSetBuffering, BufferMode(NoBuffering), stdout)
 import GHC.Utils.Misc
 import Math.NumberTheory.Roots.Squares
 import Math.NumberTheory.Utils.BitMask
-
+import Control.Concurrent.Async
+import UnliftIO.Async (pooledMapConcurrently)
+import Control.Concurrent
+import Control.Parallel.Strategies
 
 nums max = [(a, b) | a <- [1..max], b <- [1..max]]
 
@@ -48,25 +51,28 @@ sqTest (a, b) =
 main = do
   hSetBuffering stdout NoBuffering
   args <- getArgs
-  let maxR = case args of
-               (x:_) -> read x :: Integer
-               _     -> error "not int" 
-
-  --let posSqr = parMap' 1000 rseq (\(a, b) -> isPossibleSquare $ a*a + 46 * b*b) (nums maxR)
-  --let posSqr' = filterByList posSqr (nums maxR)
-  --
-  --let s1 = filter (\(a, b) -> isPossibleSquare $ a*a + 46 * b*b) (nums maxR)
-  --let s2 = filter (\(a, b) -> isSquare $ a*a + 23 * b*b) s1 
-  --let s3 = filter (\(a, b) -> isSquare $ a*a + 46 * b*b) s2
-   
-  putStrLn $ "Solutions: " ++ (show $ filter sqTest $ nums maxR)
+  let (size, startBlock) = case args of
+               (s:b:_) -> (read s :: Integer, read b :: Integer)
+               _     -> error "Need two integers: block size, start block and end block"
+  c <- getNumCapabilities 
+  putStrLn $ "Num capabilities: " ++ (show c)
+  print rtsSupportsBoundThreads
+  
+  res <- pooledMapConcurrently (\n -> return (n, filter sqTest $ blockN n size)) [startBlock..1000]
+  putStrLn $ concatMap (\(n,s) -> "Block " ++ (show n) ++ ":" ++ (show s) ++ "\n") res
 
 
-coords :: Integer -> (Integer, Integer)
-coords n
+blockN :: Integer -> Integer -> [(Integer, Integer)]
+blockN n size = pairs where
+   x = (fst $ blockCoords n) * size
+   y = (snd $ blockCoords n) * size
+   pairs = [(a, b) | a <- [x+1..x+size], b <- [y+1..y+size]]
+
+blockCoords :: Integer -> (Integer, Integer)
+blockCoords n
   | n < 1     = error "n must be >= 1"
   | otherwise =
-      let s = isqrt (n - 1)            -- ring index (max x or y)
+      let s = integerSquareRoot (n - 1)            -- ring index (max x or y)
           t = n - (s*s + 1)            -- offset along the ring (0..2s)
       in if t <= s
            then (s, t)                 -- right edge: (s, 0..s)

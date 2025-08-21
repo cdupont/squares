@@ -7,7 +7,10 @@ executable squares
   build-depends:
     base >=4.9 && <5,
     integer-roots == 1.0.3.1,
-    ghc
-  main-is: 1726.hs
+    ghc,
+    async,
+    unliftio,
+    parallel
+  main-is: squares.hs
   default-language: Haskell2010
-  ghc-options: -Wall -Widentities -Wcompat
+  ghc-options: -Wall -Widentities -Wcompat -threaded

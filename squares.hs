@@ -16,6 +16,7 @@ import Math.NumberTheory.Utils.BitMask
 import UnliftIO.Async (pooledMapConcurrentlyN, pooledMapConcurrently)
 import Control.Concurrent
 import Control.Monad
+import Control.Exception
 import GHC.Exts (Ptr(..))
 import Data.Bits ((.&.))
 
@@ -44,7 +45,8 @@ evBlockN size n = do
   let res = filter sqTest $ blockN n size
   putStrLn ("Block " ++ (show n) ++ ": " ++ (show res))
   when (length res /= 0) $ writeFile solFile (show res)
-  writeFile blockFile (show n)
+  _ <- (try $ writeFile blockFile (show n)) :: IO (Either SomeException ())
+  return ()
 
 blockN :: Integer -> Integer -> [(Integer, Integer)]
 blockN n size = pairs where

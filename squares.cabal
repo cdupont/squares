@@ -10,7 +10,8 @@ executable squares
     ghc,
     async,
     unliftio,
-    parallel
+    parallel,
+    deepseq
   main-is: squares.hs
   default-language: Haskell2010
-  ghc-options: -Wall -Widentities -Wcompat -threaded
+  ghc-options: -Wall -Widentities -Wcompat -threaded -with-rtsopts=-N

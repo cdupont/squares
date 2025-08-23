@@ -9,58 +9,42 @@
 
 module Main where
 
-import Data.List (foldl')
 import System.Environment (getArgs)
-import Data.Maybe
-import GHC.Exts (Int(..), Word(..), Ptr(..), iShiftRL#, indexWordOffAddr#)
-import Data.Bits (countTrailingZeros, finiteBitSize, testBit, (.&.))
 import Math.NumberTheory.Roots
-import Control.Monad (sequence)
---import Control.Parallel.Strategies (Strategy, using, rseq, rparWith, parMap)
-import Debug.Trace (traceShow)
-import System.IO (hFlush, hSetBuffering, BufferMode(NoBuffering), stdout)
-import GHC.Utils.Misc
 import Math.NumberTheory.Roots.Squares
 import Math.NumberTheory.Utils.BitMask
-import Control.Concurrent.Async
-import UnliftIO.Async (pooledMapConcurrently)
+import UnliftIO.Async (pooledMapConcurrentlyN, pooledMapConcurrently)
 import Control.Concurrent
-import Control.Parallel.Strategies
+import Control.Monad
+import GHC.Exts (Ptr(..))
+import Data.Bits ((.&.))
 
-nums max = [(a, b) | a <- [1..max], b <- [1..max]]
+blockFile = "block"
+solFile = "solution"
+defaultSize = 10000
+maxBlock = 1000000
+defaultCap = 4
 
-
-sqTest (a, b) = 
-                indexBitSet mask256 (fromInteger (s2 .&. 255)) 
-             && indexBitSet mask256 (fromInteger (s1 .&. 255)) 
-             && indexBitSet mask693 (fromInteger (s2 `rem` 693))
-             && indexBitSet mask693 (fromInteger (s1 `rem` 693))
-             && indexBitSet mask325 (fromInteger (s2 `rem` 325))
-             && indexBitSet mask325 (fromInteger (s1 `rem` 325))
-             && snd (integerSquareRootRem' s1) == 0
-             && snd (integerSquareRootRem' s2) == 0 
-             where
-                a2 = a * a
-                b2 = b * b
-                s1 = a2 + 46 * b2
-                s2 = b2 + 23 * b2
-  
-
-
-
+main :: IO ()
 main = do
-  hSetBuffering stdout NoBuffering
+  content <- readFile blockFile
+  let currentBlock = read content :: Integer
   args <- getArgs
-  let (size, startBlock) = case args of
-               (s:b:_) -> (read s :: Integer, read b :: Integer)
-               _     -> error "Need two integers: block size, start block and end block"
+  let (cap, size, start, end) = case args of
+               (cap:si:st:nd:_) -> (read cap :: Int, read si :: Integer, read st :: Integer, read nd :: Integer)
+               _ -> (defaultCap, defaultSize, currentBlock, maxBlock) 
   c <- getNumCapabilities 
   putStrLn $ "Num capabilities: " ++ (show c)
-  print rtsSupportsBoundThreads
-  
-  res <- pooledMapConcurrently (\n -> return (n, filter sqTest $ blockN n size)) [startBlock..1000]
-  putStrLn $ concatMap (\(n,s) -> "Block " ++ (show n) ++ ":" ++ (show s) ++ "\n") res
+  putStrLn $ "Cap: " ++ (show cap) ++ ", block size: " ++ (show size) ++ ", start block " ++ (show start) ++ ", end block " ++ (show end)
+  pooledMapConcurrentlyN cap id $ map (evBlockN size) [start..end]
+  return ()
 
+evBlockN :: Integer -> Integer -> IO ()
+evBlockN size n = do
+  let res = filter sqTest $ blockN n size
+  putStrLn ("Block " ++ (show n) ++ ": " ++ (show res))
+  when (length res /= 0) $ writeFile solFile (show res)
+  writeFile blockFile (show n)
 
 blockN :: Integer -> Integer -> [(Integer, Integer)]
 blockN n size = pairs where
@@ -79,6 +63,21 @@ blockCoords n
            else (s - (t - s), s)       -- top edge:  (s-1..0, s)
 
 
+sqTest :: (Integer, Integer) -> Bool
+sqTest (a, b) = indexBitSet mask256 (fromInteger (s2 .&. 255)) 
+             && indexBitSet mask256 (fromInteger (s1 .&. 255)) 
+             && indexBitSet mask693 (fromInteger (s2 `rem` 693))
+             && indexBitSet mask693 (fromInteger (s1 `rem` 693))
+             && indexBitSet mask325 (fromInteger (s2 `rem` 325))
+             && indexBitSet mask325 (fromInteger (s1 `rem` 325))
+             && snd (integerSquareRootRem' s1) == 0
+             && snd (integerSquareRootRem' s2) == 0 
+             where
+                a2 = a * a
+                b2 = b * b
+                s1 = a2 + 46 * b2
+                s2 = b2 + 23 * b2
+
 mask256 :: Ptr Word
 mask256 = Ptr "\DC3\STX\ETX\STX\DC2\STX\STX\STX\DC3\STX\STX\STX\DC2\STX\STX\STX\DC2\STX\ETX\STX\DC2\STX\STX\STX\DC2\STX\STX\STX\DC2\STX\STX\STX"#
 
@@ -87,16 +86,4 @@ mask693 = Ptr "\DC3\STXA\STX0\NUL\STX\EOTI\NUL\STX\t\CAN\NUL\NULB\164\NUL\DC1\EO
 
 mask325 :: Ptr Word
 mask325 = Ptr "\DC3B\SOH&\144\NUL\n!%\140\STXH0\SOH\DC4BJ\b\ENQ\144@\STX(\132\148\DLE\n \131\EOTP\f)!\DC4@\STX\EM\160\DLE\DC2"#
-
-
---evalList' :: Integer -> Strategy a -> Strategy [a]
---evalList' t s as = sequence $ foldr f [] $ zip as [1..]
---  where f (a, n) ss | n `mod` t == 0 = s (traceShow n a):ss
---                    | otherwise      = s a:ss
---
---parList' :: Integer -> Strategy a -> Strategy [a]
---parList' t s = evalList' t (rparWith s)
---
---parMap' :: Integer -> Strategy b -> (a -> b) -> [a] -> [b]
---parMap' t s f xs = map f xs `using` parList' t s
 

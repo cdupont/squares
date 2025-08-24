@@ -82,7 +82,7 @@ sqTest (a, b) = indexBitSet mask256 (fromInteger (s2 .&. 255))
                 a2 = a * a
                 b2 = b * b
                 s1 = a2 + 46 * b2
-                s2 = b2 + 23 * b2
+                s2 = a2 + 23 * b2
 
 mask256 :: Ptr Word
 mask256 = Ptr "\DC3\STX\ETX\STX\DC2\STX\STX\STX\DC3\STX\STX\STX\DC2\STX\STX\STX\DC2\STX\ETX\STX\DC2\STX\STX\STX\DC2\STX\STX\STX\DC2\STX\STX\STX"#

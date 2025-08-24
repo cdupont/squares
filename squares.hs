@@ -24,7 +24,7 @@ blockFile = "block"
 solFile = "solution"
 defaultSize = 10000
 maxBlock = 1000000
-defaultCap = 4
+defaultCap = 10
 
 main :: IO ()
 main = do
@@ -44,7 +44,11 @@ evBlockN :: Integer -> Integer -> IO ()
 evBlockN size n = do
   let res = filter sqTest $ blockN n size
   putStrLn ("Block " ++ (show n) ++ ": " ++ (show res))
-  when (length res /= 0) $ writeFile solFile (show res)
+  if (res /= [])
+    then do
+      writeFile solFile (show res)
+      error "Solution found!"
+    else return ()
   _ <- (try $ writeFile blockFile (show n)) :: IO (Either SomeException ())
   return ()
 
